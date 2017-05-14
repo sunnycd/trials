@@ -74,3 +74,6 @@ nsrv
 
 nsrv<-nSurvival(lambda1=0.916,lambda2=1.713,eta=-0.626,Ts=24,Tr=17)
 nsrv
+
+data(x)
+summary(x)
