@@ -1,0 +1,95 @@
+---
+title: "6051HW2"
+output: word_document
+---
+(a) Fit a binomial regression with Class as the response and the other nine variables as predictors. Report the residual deviance and associated degrees of freedom. Can this information be used to determine if this model fits the data? Explain.
+
+
+```{r}
+library(faraway)
+data(wbca)
+summary(wbca)
+g <- glm((cbind(Class, 1-Class))~.,wbca,family = binomial())
+summary(g)
+```
+
+(b) Use AIC as the criterion to determine the best subset of variables. (Use the step function.)
+```{r}
+library(MASS)
+stepg1 <- step(g)
+summary(stepg1)
+```
+
+(c) Use the reduced model to predict the outcome for a new patient with predictor variables 1, 1, 3, 2, 1, 1, 4, 1, 1 (same order as above). Give a confidence interval for your prediction.
+```{r}
+pred<-predict(stepg1,newdata=data.frame("Adhes"=1, "BNucl"=1, "Chrom"=3, "Mitos"=1, "NNucl"=1, "Thick"=4, "UShap"=1),se=T)
+e0<-pred$fit
+se0<-pred$se.fit
+ilogit(c(e0,e0+1.96*se0,e0-1.96*se0))
+```
+
+(d) Suppose that a cancer is classified as benign if p>0.5 and malignant if p<0.5. Compute the number of errors of both types that will be made if this method is applied to the current data with the reduced model.
+
+```{r}
+pred1<-predict(stepg1,type="response")
+(false.neg<-sum(pred1>=0.5 & !wbca$Class)/sum(!wbca$Class))
+(false.pos<-sum(pred1<0.5 & wbca$Class)/sum(wbca$Class))
+```
+
+(e) Suppose we change the cutoff to 0.9 so that p<0.9 is classified as malignant and p>0.9 as benign. Compute the number of errors in this case. Discuss the issues in determining the cutoff.
+
+```{r}
+(false.neg<-sum(pred1>=0.9 & !wbca$Class)/sum(!wbca$Class))
+(false.pos<-sum(pred1<0.9 & wbca$Class)/sum(wbca$Class))
+```
+
+
+(f) It is usually misleading to use the same data to fit a model and test its predictive ability. To investigate this, split the data into two parts—assign every third observation to a test set and the remaining two thirds of the data to a training set. Use the training set to determine the model and the test set to assess its predictive performance. Compare the outcome to the previously obtained results.
+```{r}
+dim(wbca)
+(2/3)*nrow(wbca)
+class(wbca)
+
+splitdf<-function(dataframe, seed = null){
+  if (!is.null(seed)) 
+    set.seed(seed)
+  index<-1:nrow(dataframe)
+  trainindex<- sample (index, trunc(454))
+  trainset <- dataframe[trainindex, ]
+  testset <- dataframe[-trainindex, ]
+  list(trainset=trainset,testset=testset)
+}
+splits <- splitdf(wbca, seed=1)
+
+#it returns a list - two data frames called trainset and testset
+#str(splits)
+
+# there are 454 observations in training data and 227 observations in testing data
+lapply(splits,nrow)
+
+#view the first few columns in each data frame
+#lapply(splits,head)
+
+# save the training and testing sets as data frames
+tr2<- splits$trainset
+te2<- splits$testset
+gtr <- glm((cbind(Class, 1-Class)) ~ .,data = tr2, family = binomial())
+summary(gtr)
+class(gtr)
+
+pred2<-predict(gtr,te2[,2:10], type="response")
+sum(pred2>=0.5)
+class(pred2)
+(false.neg<-sum(pred2>=0.5 & !te2$Class)/sum(!te2$Class))
+(false.pos<-sum(pred2<0.5 & te2$Class)/sum(te2$Class))
+
+(false.neg<-sum(pred2>=0.9 & !te2$Class)/sum(!te2$Class))
+(false.pos<-sum(pred2<0.9 & te2$Class)/sum(te2$Class))
+
+thresh  <- 0.9            # threshold for categorizing predicted probabilities
+predFac <- cut(pred2, breaks=c(-Inf, thresh, Inf), labels=c("0", "1"))
+cTab<- table(te2$Class, predFac, dnn=c("actual", "predicted"))
+addmargins(cTab)
+
+```
+
